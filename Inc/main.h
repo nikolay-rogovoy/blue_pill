@@ -6,13 +6,17 @@ extern "C" {
 #endif
 
 #include "stm32f1xx_hal.h"
-
+#include "usbd_core.h"
+#include "stm32f1xx_hal_pcd.h"
+#include "usbd_desc.h"
+#include "usbd_cdc.h" 
+#include "usbd_cdc_interface.h"
 /* Определения пинов */
 #define LED_PIN                     GPIO_PIN_13
 #define LED_PORT                    GPIOC
 
 /* Другие определения */
-#define LED_TOGGLE_INTERVAL_MS      500
+#define LED_TOGGLE_INTERVAL_MS      100
 
 /* Прототипы функций */
 void Error_Handler(void);

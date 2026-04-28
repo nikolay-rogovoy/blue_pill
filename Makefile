@@ -14,11 +14,21 @@ HAL_DIR = $(CMSIS_DIR)/STM32F1xx_HAL_Driver
 HAL_INC = $(HAL_DIR)/Inc
 HAL_SRC = $(HAL_DIR)/Src
 
+# Путь к USB-библиотеке в вашем submodule
+USB_MW_DIR = libs/STM32CubeF1/Middlewares/ST/STM32_USB_Device_Library
+USB_CORE_SRC = $(USB_MW_DIR)/Core/Src
+USB_CDC_SRC = $(USB_MW_DIR)/Class/CDC/Src
+USB_CORE_INC = $(USB_MW_DIR)/Core/Inc
+USB_CDC_INC = $(USB_MW_DIR)/Class/CDC/Inc
+
+
 # Пути к заголовочным файлам
 INCLUDES = -I./Inc \
            -I$(CMSIS_DIR)/CMSIS/Include \
            -I$(CMSIS_DIR)/CMSIS/Device/ST/STM32F1xx/Include \
            -I$(HAL_DIR)/Inc \
+           -I$(USB_CORE_INC) \
+           -I$(USB_CDC_INC) \
            -I$(FREE_RTOS_SRC)/include \
            -I$(FREE_RTOS_SRC)/portable/GCC/ARM_CM3
 
@@ -41,7 +51,17 @@ HAL_SOURCES = $(HAL_SRC)/stm32f1xx_hal.c \
               $(HAL_SRC)/stm32f1xx_hal_tim.c \
               $(HAL_SRC)/stm32f1xx_hal_tim_ex.c \
               $(HAL_SRC)/stm32f1xx_hal_adc.c \
-              $(HAL_SRC)/stm32f1xx_hal_adc_ex.c
+              $(HAL_SRC)/stm32f1xx_hal_adc_ex.c \
+              $(HAL_SRC)/stm32f1xx_hal_adc.c \
+              $(HAL_SRC)/stm32f1xx_hal_adc_ex.c \
+              $(HAL_SRC)/stm32f1xx_hal_pcd.c \
+              $(HAL_SRC)/stm32f1xx_hal_pcd_ex.c \
+              $(HAL_SRC)/stm32f1xx_ll_usb.c
+
+USB_SOURCES = $(USB_CORE_SRC)/usbd_core.c \
+              $(USB_CORE_SRC)/usbd_ctlreq.c \
+              $(USB_CORE_SRC)/usbd_ioreq.c \
+              $(USB_CDC_SRC)/usbd_cdc.c
 
 FREERTOS_SOURCES = $(FREE_RTOS_SRC)/tasks.c \
                    $(FREE_RTOS_SRC)/queue.c \
@@ -66,7 +86,7 @@ LINKER_SCRIPT = $(CMSIS_DIR)/CMSIS/Device/ST/STM32F1xx/Source/Templates/gcc/link
 #               $(USB_CLASS_DIR)/Src/usbd_cdc_if.c
 
 # Объединяем всё вместе
-ALL_SOURCES = $(SOURCES) $(HAL_SOURCES) $(FREERTOS_SOURCES) $(STARTUP_FILE)
+ALL_SOURCES = $(SOURCES) $(HAL_SOURCES) $(USB_SOURCES) $(FREERTOS_SOURCES) $(STARTUP_FILE)
 
 # Объектные файлы
 # OBJECTS = $(addprefix $(BUILD_DIR)/, $(notdir $(ALL_SOURCES:.c=.o)))
