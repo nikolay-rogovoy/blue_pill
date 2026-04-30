@@ -1,4 +1,8 @@
 #include "main.h"
+#include "usb_device.h"
+#include "usbd_cdc_if.h"
+#include "stm32f1xx_hal_tim.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -6,16 +10,16 @@ static void MX_GPIO_Init(void);
 USBD_HandleTypeDef USBD_Device;
 TIM_HandleTypeDef htim4;
 
-void MX_TIM4_Init(void)
-{
-    htim4.Instance = TIM4;
-    htim4.Init.Prescaler = 7200 - 1; /* 72 MHz / 7200 = 10 kHz */
-    htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim4.Init.Period = 10 - 1; /* 10 kHz / 10 = 1 kHz */
-    htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-    HAL_TIM_Base_Init(&htim4);
-    HAL_NVIC_SetPriority(TIM4_IRQn, 0, 0);
-}
+// void MX_TIM4_Init(void)
+// {
+//     htim4.Instance = TIM4;
+//     htim4.Init.Prescaler = 7200 - 1; /* 72 MHz / 7200 = 10 kHz */
+//     htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+//     htim4.Init.Period = 10 - 1; /* 10 kHz / 10 = 1 kHz */
+//     htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+//     HAL_TIM_Base_Init(&htim4);
+//     HAL_NVIC_SetPriority(TIM4_IRQn, 0, 0);
+// }
 
 void HAL_TIM_Base_MspInit(TIM_HandleTypeDef *htim_base)
 {
@@ -41,27 +45,6 @@ void vLEDTask(void *pvParameters)
     }
 }
 
-void MX_USB_DEVICE_Init()
-{
-    /* Инициализация USB */
-    if (USBD_Init(&USBD_Device, &VCP_Desc, 0) != USBD_OK)
-    {
-        Error_Handler();
-    }
-    if (USBD_RegisterClass(&USBD_Device, USBD_CDC_CLASS) != USBD_OK)
-    {
-        Error_Handler();
-    }
-    if (USBD_CDC_RegisterInterface(&USBD_Device, &USBD_CDC_fops) != USBD_OK)
-    {
-        Error_Handler();
-    }
-    if (USBD_Start(&USBD_Device) != USBD_OK)
-    {
-        Error_Handler();
-    }
-}
-
 void vUSBTask(void *pvParameters)
 {
     /* Ждём, пока система стабилизируется */
@@ -82,16 +65,14 @@ void vUSBTask(void *pvParameters)
 int main(void)
 {
     HAL_Init();
-    // HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
+    HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
     SystemClock_Config();
     MX_GPIO_Init();
 
-    MX_USB_DEVICE_Init();
-
     // HAL_Delay(100);
 
-    MX_TIM4_Init();
-    HAL_TIM_Base_Start_IT(&htim4);
+    // MX_TIM4_Init();
+    // HAL_TIM_Base_Start_IT(&htim4);
 
     // /* Init Device Library */
     // USBD_Init(&USBD_Device, &VCP_Desc, 0);
@@ -109,10 +90,32 @@ int main(void)
     for (int i = 0; i < 3; i++)
     {
         HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
-        HAL_Delay(100);
+        HAL_Delay(500);
     }
 
-    // xTaskCreate(vUSBTask, "USB", 512, NULL, 1, NULL); /* Низкий приоритет */
+    // 1) Принудительно выключаем тактирование WWDG по физическому адресу
+    RCC->APB1ENR &= ~RCC_APB1ENR_WWDGEN;
+
+    // 2) Запрещаем прерывания от WWDG
+    WWDG->SR = ~WWDG_SR_EWIF; // очистка флага
+    NVIC_DisableIRQ(WWDG_IRQn);
+
+    MX_USB_DEVICE_Init();
+
+    // 1) Принудительно выключаем тактирование WWDG по физическому адресу
+    RCC->APB1ENR &= ~RCC_APB1ENR_WWDGEN;
+
+    // 2) Запрещаем прерывания от WWDG
+    WWDG->SR = ~WWDG_SR_EWIF; // очистка флага
+    NVIC_DisableIRQ(WWDG_IRQn);
+
+    // for (;;)
+    // {
+    //     HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
+    //     HAL_Delay(400);
+    // }
+
+    xTaskCreate(vUSBTask, "USB", 512, NULL, 1, NULL); /* Низкий приоритет */
 
     xTaskCreate(
         vLEDTask, /* Функция задачи */

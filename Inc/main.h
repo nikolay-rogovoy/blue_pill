@@ -5,12 +5,10 @@
 extern "C" {
 #endif
 
+
 #include "stm32f1xx_hal.h"
-#include "usbd_core.h"
 #include "stm32f1xx_hal_pcd.h"
-#include "usbd_desc.h"
-#include "usbd_cdc.h" 
-#include "usbd_cdc_interface.h"
+
 /* Определения пинов */
 #define LED_PIN                     GPIO_PIN_13
 #define LED_PORT                    GPIOC

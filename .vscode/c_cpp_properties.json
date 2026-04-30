@@ -8,7 +8,8 @@
                 "${workspaceFolder}/libs/STM32CubeF1/Drivers/CMSIS/Device/ST/STM32F1xx/Include",
                 "${workspaceFolder}/libs/STM32CubeF1/Drivers/STM32F1xx_HAL_Driver/Inc",
                 "${workspaceFolder}/libs/STM32CubeF1/Drivers/STM32F1xx_HAL_Driver/Inc/Legacy",
-                "${workspaceFolder}/Inc"
+                "${workspaceFolder}/Inc",
+                "${workspaceFolder}/Inc/USB"
             ],
             "defines": [
                 "STM32F103xB",

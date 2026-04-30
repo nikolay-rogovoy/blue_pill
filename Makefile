@@ -24,6 +24,7 @@ USB_CDC_INC = $(USB_MW_DIR)/Class/CDC/Inc
 
 # Пути к заголовочным файлам
 INCLUDES = -I./Inc \
+           -I./Inc/USB \
            -I$(CMSIS_DIR)/CMSIS/Include \
            -I$(CMSIS_DIR)/CMSIS/Device/ST/STM32F1xx/Include \
            -I$(HAL_DIR)/Inc \

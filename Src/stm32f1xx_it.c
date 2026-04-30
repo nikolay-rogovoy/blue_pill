@@ -23,6 +23,7 @@
 #include "stm32f1xx_it.h"
 #include "FreeRTOS.h" // Должен быть перед task.h
 #include "task.h"     // Здесь определены taskSCHEDULER_* константы
+#include "usb_device.h"
 /** @addtogroup STM32F1xx_HAL_Examples
  * @{
  */
@@ -142,15 +143,12 @@ void PendSV_Handler(void)
  */
 void SysTick_Handler(void)
 {
-  // /* 1. Обновляем счетчик тиков для HAL. */
   HAL_IncTick();
 
-  // /* 2. Вызываем обработчик FreeRTOS, чтобы она могла переключить задачи.
-  //     Это правильный способ, рекомендованный в сообществе FreeRTOS[citation:1]. */
-  // if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED)
-  // {
-  //   xPortSysTickHandler();
-  // }
+  if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED)
+  {
+    xPortSysTickHandler();
+  }
 }
 
 /* Новый обработчик для TIM6 */
@@ -159,12 +157,22 @@ void TIM4_IRQHandler(void)
     if (TIM4->SR & TIM_SR_UIF) {
         TIM4->SR = ~TIM_SR_UIF;
     }
-    
-    // HAL_IncTick();  /* Для HAL_Delay() */
-    
-    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
-        xPortSysTickHandler();  /* Для FreeRTOS */
+}
+
+void WWDG_IRQHandler(void)
+{
+    /* Очищаем флаг прерывания */
+    if (WWDG->SR & WWDG_SR_EWIF) {
+        WWDG->SR = ~WWDG_SR_EWIF;
     }
+    /* Ничего больше не делаем — просто выходим */
+}
+
+void USB_LP_CAN1_RX0_IRQHandler(void)
+{
+
+  HAL_PCD_IRQHandler(&hpcd_USB_FS);
+
 }
 
 /******************************************************************************/
