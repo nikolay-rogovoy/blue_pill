@@ -45,21 +45,109 @@ void vLEDTask(void *pvParameters)
     }
 }
 
-void vUSBTask(void *pvParameters)
+TaskHandle_t xHandleUSBTask = NULL;
+TaskHandle_t xLEDTaskHandle = NULL;
+
+void USBTask(void *pvParameters)
 {
-    /* Ждём, пока система стабилизируется */
-    vTaskDelay(pdMS_TO_TICKS(500));
+    /* Сохраняем хендл текущей задачи в глобальную переменную */
+    xHandleUSBTask = xTaskGetCurrentTaskHandle();
 
-    vTaskSuspendAll();
+    char line_buffer[256] = {0}; // Буфер для накопления строки
+    uint16_t pos = 0;            // Текущая позиция в буфере
 
-    MX_USB_DEVICE_Init();
+    memset(line_buffer, 0, sizeof(line_buffer));
 
-    xTaskResumeAll();
+    for (;;)
+    {
+        /* Ожидаем уведомление от USB прерывания */
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    vTaskDelay(pdMS_TO_TICKS(500));
+        // taskENTER_CRITICAL();
+        /* Обрабатываем полученные данные */
+        while (rxHead != rxTail)
+        {
+            uint8_t c = rxBuffer[rxTail++];
+            if (rxTail >= RX_BUFFER_SIZE)
+                rxTail = 0;
 
-    /* USB инициализирован, задача больше не нужна */
-    vTaskDelete(NULL);
+            if (c == '\r' || c == '\n')
+            {
+                // Нажат Enter — обрабатываем строку
+                if (pos > 0)
+                {
+                    line_buffer[pos] = '\0'; // Завершаем строку
+
+                    // ==== ЗДЕСЬ ОБРАБАТЫВАЕМ КОМАНДУ ====
+                    // Пример: проверяем команду "LED_ON" или "LED_OFF"
+                    if (strcmp(line_buffer, "LED_ON") == 0)
+                    {
+                        HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_RESET); // Включаем LED
+                        vTaskResume(xLEDTaskHandle);
+                        CDC_Transmit_Async((uint8_t *)"\r\nLED ON\r\n", 11);
+                    }
+                    else if (strcmp(line_buffer, "LED_OFF") == 0)
+                    {
+                        HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_SET); // Выключаем LED
+                        vTaskSuspend(xLEDTaskHandle);
+                        CDC_Transmit_Async((uint8_t *)"\r\nLED OFF\r\n", 12);
+                    }
+                    else if (strcmp(line_buffer, "STATUS") == 0)
+                    {
+                        char status[64];
+                        sprintf(status, "\r\nUptime: %lu ms\r\n", HAL_GetTick());
+                        CDC_Transmit_Async((uint8_t *)status, strlen(status));
+                    }
+                    else if (strcmp(line_buffer, "HELP") == 0)
+                    {
+                        CDC_Transmit_Async((uint8_t *)"\r\n", 2);
+                        CDC_Transmit_Async((uint8_t *)"Commands: LED_ON, LED_OFF, STATUS, HELP\r\n", 41);
+                    }
+                    else
+                    {
+                        CDC_Transmit_Async((uint8_t *)"\r\n", 2);
+                        CDC_Transmit_Async((uint8_t *)"Uncnown command\r\n", 20);
+                        CDC_Transmit_Async((uint8_t *)line_buffer, pos);
+                        CDC_Transmit_Async((uint8_t *)"\r\n", 2);
+                    }
+                    // =================================
+
+                    // Сбрасываем буфер
+                    pos = 0;
+                    memset(line_buffer, 0, sizeof(line_buffer));
+                }
+            }
+            else if (c == '\b' || c == 0x7F) // Backspace или Delete
+            {
+                // Удаляем последний символ
+                if (pos > 0)
+                {
+                    pos--;
+                    line_buffer[pos] = '\0';
+                    // Отправляем backspace для терминала
+                    CDC_Transmit_Async((uint8_t *)"\b \b", 3); // Затираем символ
+                }
+            }
+            else if (c >= 0x20 && c <= 0x7E) // Печатные символы (ASCII)
+            {
+                // Добавляем символ в буфер, если есть место
+                if (pos < sizeof(line_buffer) - 1)
+                {
+                    line_buffer[pos++] = c;
+                    // Отправляем эхо обратно (видим то, что печатаем)
+                    CDC_Transmit_Async(&c, 1);
+                }
+                else
+                {
+                    // Буфер переполнен
+                    CDC_Transmit_Async((uint8_t *)"\r\nBuffer overflow!\r\n", 22);
+                    pos = 0;
+                    memset(line_buffer, 0, sizeof(line_buffer));
+                }
+            }
+        }
+        // taskEXIT_CRITICAL();
+    }
 }
 
 int main(void)
@@ -69,61 +157,26 @@ int main(void)
     SystemClock_Config();
     MX_GPIO_Init();
 
-    // HAL_Delay(100);
-
-    // MX_TIM4_Init();
-    // HAL_TIM_Base_Start_IT(&htim4);
-
-    // /* Init Device Library */
-    // USBD_Init(&USBD_Device, &VCP_Desc, 0);
-
-    // // /* Add Supported Class */
-    // USBD_RegisterClass(&USBD_Device, USBD_CDC_CLASS);
-
-    // // /* Add CDC Interface Class */
-    // USBD_CDC_RegisterInterface(&USBD_Device, &USBD_CDC_fops);
-
-    // // /* Start Device Process */
-    // USBD_Start(&USBD_Device);
-
-    /* Проверка: мигаем LED, чтобы убедиться, что HAL работает */
-    for (int i = 0; i < 3; i++)
-    {
-        HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
-        HAL_Delay(500);
-    }
-
-    // 1) Принудительно выключаем тактирование WWDG по физическому адресу
-    RCC->APB1ENR &= ~RCC_APB1ENR_WWDGEN;
-
-    // 2) Запрещаем прерывания от WWDG
-    WWDG->SR = ~WWDG_SR_EWIF; // очистка флага
-    NVIC_DisableIRQ(WWDG_IRQn);
-
     MX_USB_DEVICE_Init();
 
-    // 1) Принудительно выключаем тактирование WWDG по физическому адресу
-    RCC->APB1ENR &= ~RCC_APB1ENR_WWDGEN;
+    xTaskCreate(
+        USBTask,        // Функция задачи
+        "USB Task",     // Имя задачи
+        256,            // Размер стека (слов, не байт!)
+        NULL,           // Параметр
+        2,              // Приоритет (выше LED, но не слишком высокий)
+        &xHandleUSBTask // Сохраняем хендл для уведомлений из прерывания
+    );
 
-    // 2) Запрещаем прерывания от WWDG
-    WWDG->SR = ~WWDG_SR_EWIF; // очистка флага
-    NVIC_DisableIRQ(WWDG_IRQn);
-
-    // for (;;)
-    // {
-    //     HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
-    //     HAL_Delay(400);
-    // }
-
-    xTaskCreate(vUSBTask, "USB", 512, NULL, 1, NULL); /* Низкий приоритет */
+    xTaskCreate(CDC_SendTask, "USBSend", 256, NULL, 2, NULL);
 
     xTaskCreate(
-        vLEDTask, /* Функция задачи */
-        "LED",    /* Имя задачи (для отладки) */
-        128,      /* Размер стека в словах (не байтах!) */
-        NULL,     /* Параметр задачи */
-        1,        /* Приоритет (1 = низкий) */
-        NULL      /* Хэндл задачи (не нужен) */
+        vLEDTask,       /* Функция задачи */
+        "LED",          /* Имя задачи (для отладки) */
+        128,            /* Размер стека в словах (не байтах!) */
+        NULL,           /* Параметр задачи */
+        1,              /* Приоритет (1 = низкий) */
+        &xLEDTaskHandle /* Хэндл задачи*/
     );
 
     /* 5. Запуск планировщика FreeRTOS */

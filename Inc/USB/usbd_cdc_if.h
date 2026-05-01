@@ -52,7 +52,7 @@
 #define APP_RX_DATA_SIZE  1024
 #define APP_TX_DATA_SIZE  1024
 /* USER CODE BEGIN EXPORTED_DEFINES */
-
+#define RX_BUFFER_SIZE 256
 /* USER CODE END EXPORTED_DEFINES */
 
 /**
@@ -94,7 +94,9 @@
 extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
 
 /* USER CODE BEGIN EXPORTED_VARIABLES */
-
+extern volatile uint8_t rxBuffer[RX_BUFFER_SIZE];
+extern volatile uint16_t rxHead;
+extern volatile uint16_t rxTail;
 /* USER CODE END EXPORTED_VARIABLES */
 
 /**
@@ -107,6 +109,9 @@ extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
   */
 
 uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
+void CDC_Init_TxQueue(void);
+void CDC_Transmit_Async(uint8_t* Buf, uint16_t Len);
+void CDC_SendTask(void *pvParameters);
 
 /* USER CODE BEGIN EXPORTED_FUNCTIONS */
 

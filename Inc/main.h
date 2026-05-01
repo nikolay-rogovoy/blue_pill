@@ -14,7 +14,7 @@ extern "C" {
 #define LED_PORT                    GPIOC
 
 /* Другие определения */
-#define LED_TOGGLE_INTERVAL_MS      100
+#define LED_TOGGLE_INTERVAL_MS      1000
 
 /* Прототипы функций */
 void Error_Handler(void);
